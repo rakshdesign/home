@@ -8,20 +8,21 @@
 
 <canvas id="grain"></canvas>
 
-<!-- AUDIO -->
 <audio id="bgm" src="music.mp3" loop></audio>
 
 <div class="container">
-    <!-- Bag -->
-    <img src="topcover.png" id="bag" class="floating" alt="plastic bag">
+    <img src="topcover.png" id="bag" class="floating">
 
-    <!-- Images -->
     <div class="gallery">
-        <img src="1.png" class="item i1">
-        <img src="2.png" class="item i2">
-        <img src="3.png" class="item i3">
-        <img src="4.png" class="item i4">
-        <img src="5.png" class="item i5">
+        <!-- wrapped in links -->
+        <a href="https://link1.com" target="_blank"><img src="1.png" class="item i1"></a>
+
+        <!-- TENNIS BALL (NO LINK) -->
+        <img src="2.png" class="item i2" id="ball">
+
+        <a href="https://t.me/canyouhearthemusic" target="_blank"><img src="3.png" class="item i3"></a>
+        <a href="https://link4.com" target="_blank"><img src="4.png" class="item i4"></a>
+        <a href="https://link5.com" target="_blank"><img src="5.png" class="item i5"></a>
     </div>
 </div>
 
@@ -33,11 +34,9 @@ body {
     overflow: hidden;
 }
 
-/* GRAIN */
+/* grain */
 #grain {
     position: fixed;
-    top: 0;
-    left: 0;
     width: 100%;
     height: 100%;
     pointer-events: none;
@@ -45,27 +44,22 @@ body {
     opacity: 0.1;
 }
 
-/* Layout */
 .container {
-    position: relative;
     height: 100vh;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
 }
 
-/* Bag */
 #bag {
     width: 300px;
     cursor: pointer;
     z-index: 2;
 }
 
-/* Floating */
 .floating {
     animation: float 3s ease-in-out infinite;
 }
-
 .stop-float {
     animation: none;
 }
@@ -76,41 +70,34 @@ body {
     100% { transform: translateY(0); }
 }
 
-/* Gallery */
+/* gallery */
 .gallery {
     position: absolute;
 }
 
-/* Images */
+/* items */
 .item {
     position: absolute;
     max-width: 150px;
-
     opacity: 0;
     z-index: 1;
-
-    transform: translate(0, 0) scale(0.2);
-    transition: transform 0.8s cubic-bezier(.25,.8,.25,1), opacity 0.5s ease;
-
+    transform: translate(0,0) scale(0.2);
+    transition: transform 0.8s ease, opacity 0.5s ease;
     cursor: grab;
+    touch-action: none;
 }
 
-/* ACTIVE */
+/* arc */
+.i1 { --x: -200px; --y: -150px; }
+.i2 { --x: -100px; --y: -220px; }
+.i3 { --x: 0px;   --y: -250px; }
+.i4 { --x: 100px; --y: -220px; }
+.i5 { --x: 200px; --y: -150px; }
+
 .show .item {
     opacity: 1;
+    transform: translate(var(--x), var(--y)) scale(1);
 }
-
-/* ARC POSITIONS */
-.i1 { --x: -200px; --y: -150px; --r: -20deg; }
-.i2 { --x: -100px; --y: -220px; --r: -10deg; }
-.i3 { --x: 0px;   --y: -250px; --r: 0deg; }
-.i4 { --x: 100px; --y: -220px; --r: 10deg; }
-.i5 { --x: 200px; --y: -150px; --r: 20deg; }
-
-.show .item {
-    transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(1);
-}
-
 </style>
 
 <script>
@@ -118,118 +105,169 @@ const bag = document.getElementById("bag");
 const gallery = document.querySelector(".gallery");
 const items = document.querySelectorAll(".item");
 const audio = document.getElementById("bgm");
+const ball = document.getElementById("ball");
 
-/* TOGGLE (NOW ALSO PLAY/PAUSE) */
-bag.addEventListener("click", () => {
-    const isOpen = gallery.classList.toggle("show");
+audio.volume = 0.6;
 
-    if (isOpen) {
-        // STOP FLOAT
+/* toggle */
+bag.onclick = () => {
+    const open = gallery.classList.toggle("show");
+
+    if (open) {
         bag.classList.remove("floating");
         bag.classList.add("stop-float");
 
-        // BRING ABOVE
-        setTimeout(() => {
-            items.forEach(item => item.style.zIndex = 5);
-        }, 400);
+        setTimeout(() => items.forEach(i => i.style.zIndex = 5), 400);
 
-        // PLAY / RESUME MUSIC
-        audio.play().catch(() => {});
-
+        audio.play().catch(()=>{});
     } else {
-        // RESUME FLOAT
-        bag.classList.remove("stop-float");
         bag.classList.add("floating");
+        bag.classList.remove("stop-float");
 
-        // RESET LAYERS
-        items.forEach(item => {
-            item.style.zIndex = 1;
-            item.dataset.dx = 0;
-            item.dataset.dy = 0;
-            item.style.transform = "";
+        items.forEach(i=>{
+            i.style.zIndex = 1;
+            i.style.transform="";
+            i.dataset.dx=0;
+            i.dataset.dy=0;
         });
 
-        // PAUSE MUSIC
         audio.pause();
     }
-});
+};
 
-/* SMOOTH DRAG */
-items.forEach(item => {
-    let isDragging = false;
-    let startX, startY;
+/* DRAG (POINTER) */
+items.forEach(item=>{
+    let startX, startY, dx=0, dy=0;
 
-    item.dataset.dx = 0;
-    item.dataset.dy = 0;
+    item.addEventListener("pointerdown", e=>{
+        if(item===ball && ball.dataset.animating==="true") return;
 
-    item.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        item.style.cursor = "grabbing";
+        item.setPointerCapture(e.pointerId);
+        startX=e.clientX;
+        startY=e.clientY;
 
-        startX = e.clientX;
-        startY = e.clientY;
+        dx=parseFloat(item.dataset.dx)||0;
+        dy=parseFloat(item.dataset.dy)||0;
 
-        item.style.transition = "none";
+        item.style.transition="none";
     });
 
-    document.addEventListener("mousemove", (e) => {
-        if (!isDragging) return;
+    item.addEventListener("pointermove", e=>{
+        if(!item.hasPointerCapture(e.pointerId)) return;
 
-        let dx = parseFloat(item.dataset.dx);
-        let dy = parseFloat(item.dataset.dy);
+        let mx=dx+(e.clientX-startX);
+        let my=dy+(e.clientY-startY);
 
-        const moveX = dx + (e.clientX - startX);
-        const moveY = dy + (e.clientY - startY);
-
-        item.style.transform =
-            `translate(calc(var(--x) + ${moveX}px), calc(var(--y) + ${moveY}px)) 
-             rotate(var(--r)) scale(1)`;
+        item.style.transform=
+        `translate(calc(var(--x) + ${mx}px), calc(var(--y) + ${my}px)) scale(1)`;
     });
 
-    document.addEventListener("mouseup", (e) => {
-        if (!isDragging) return;
+    item.addEventListener("pointerup", e=>{
+        dx += (e.clientX-startX);
+        dy += (e.clientY-startY);
 
-        let dx = parseFloat(item.dataset.dx);
-        let dy = parseFloat(item.dataset.dy);
-
-        dx += (e.clientX - startX);
-        dy += (e.clientY - startY);
-
-        item.dataset.dx = dx;
-        item.dataset.dy = dy;
-
-        isDragging = false;
-        item.style.cursor = "grab";
+        item.dataset.dx=dx;
+        item.dataset.dy=dy;
     });
 });
+
+/* TENNIS BALL PHYSICS */
+ball.onclick = () => {
+    if (ball.dataset.animating==="true") return;
+
+    ball.dataset.animating="true";
+
+    let rect = ball.getBoundingClientRect();
+    let x = rect.left;
+    let y = rect.top;
+
+    let vx = 6 * (Math.random() > 0.5 ? 1 : -1);
+    let vy = -8;
+
+    let gravity = 0.4;
+    let bounces = 0;
+
+    function animate() {
+        x += vx;
+        y += vy;
+        vy += gravity;
+
+        let w = window.innerWidth;
+        let h = window.innerHeight;
+
+        let bw = ball.offsetWidth;
+        let bh = ball.offsetHeight;
+
+        // walls
+        if (x <= 0 || x + bw >= w) {
+            vx *= -1;
+            bounces++;
+        }
+
+        // top
+        if (y <= 0) {
+            vy *= -1;
+            bounces++;
+        }
+
+        // ground
+        if (y + bh >= h) {
+            y = h - bh;
+            vy *= -0.7;
+            bounces++;
+        }
+
+        ball.style.transform = `translate(${x - w/2 + bw/2}px, ${y - h/2 + bh/2}px) scale(1)`;
+
+        if (bounces < 6) {
+            requestAnimationFrame(animate);
+        } else {
+            // final fall
+            vy = 2;
+            function fall(){
+                y += vy;
+                vy += gravity;
+
+                if(y + bh >= h){
+                    y = h - bh;
+                    ball.dataset.animating="false";
+                    return;
+                }
+
+                ball.style.transform = `translate(${x - w/2 + bw/2}px, ${y - h/2 + bh/2}px) scale(1)`;
+                requestAnimationFrame(fall);
+            }
+            fall();
+        }
+    }
+
+    animate();
+};
 
 /* GRAIN */
 const canvas = document.getElementById("grain");
 const ctx = canvas.getContext("2d");
 
-function resize() {
+function resize(){
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 }
 resize();
-window.addEventListener("resize", resize);
+window.onresize = resize;
 
-function grain() {
-    const w = canvas.width;
-    const h = canvas.height;
+function grain(){
+    let w=canvas.width,h=canvas.height;
+    let img=ctx.createImageData(w,h);
+    let buf=new Uint32Array(img.data.buffer);
 
-    const imageData = ctx.createImageData(w, h);
-    const buffer = new Uint32Array(imageData.data.buffer);
-
-    for (let i = 0; i < buffer.length; i++) {
-        const val = Math.random() * 255 | 0;
-        buffer[i] = (255 << 24) | (val << 16) | (val << 8) | val;
+    for(let i=0;i<buf.length;i++){
+        let v=Math.random()*255|0;
+        buf[i]=(255<<24)|(v<<16)|(v<<8)|v;
     }
 
-    ctx.putImageData(imageData, 0, 0);
+    ctx.putImageData(img,0,0);
     requestAnimationFrame(grain);
 }
-
 grain();
 </script>
 
